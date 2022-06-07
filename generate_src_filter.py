@@ -17,10 +17,9 @@ def checkForBuildFlag(flag):
 
 # Make sure that we override the default source file list...
 env.Replace(SRC_FILTER = ["-<*>"])
-
+# env.Append(SRC_FILTER = ["+<src/>"])
 # Add event system
 env.Append(SRC_FILTER = ["+<src/qf/>"])
-
 # Add includes (qstamp.cpp)
 env.Append(SRC_FILTER = ["+<include/>"])
 
@@ -32,13 +31,17 @@ if checkForBuildFlag("Q_UTEST"):
     env.Append(SRC_FILTER = ["+<ports/arm-cm/qutest/>"])
     click.secho("Added qutest-port to source filter", fg='green')
 
+    # Add Q_UTEST port to includes.
+    env.Append(BUILD_FLAGS = ["-I ./ports/arm-cm/qutest/"])
+
     # Config is unit test. Make sure that Q_SPY is also defined.
     if not checkForBuildFlag("Q_SPY"):
         click.secho("Config is a unit test, but Q_SPY is not defined. Adding it to build flags.", fg='yellow')
-        env.Append(BUILD_FLAGS = "-D Q_SPY")
+        env.Append(BUILD_FLAGS = ["-D Q_SPY"])
 else:
     click.echo("Config is NOT a unit test.")
     env.Append(SRC_FILTER = "+<ports/arm-cm/qv/gnu/>")
+    env.Append(BUILD_FLAGS = ["-I ./ports/arm-cm/qv/gnu/"])
     click.secho("Added qv-kernel to source filter", fg='green')
     # Add qv kernel
     env.Append(SRC_FILTER = "+<src/qv/>") 
@@ -54,7 +57,7 @@ click.secho("Done building source filter", fg='yellow')
 
 # Add additional includes...
 click.echo("Adding additional include directories...")
-includes = ["./ports/arm-cm/qv/gnu/", "./ports/arm-cm/qutest/", "./src/", "./include/"]
+includes = ["./src/", "./include/"]
 for word in includes:
     click.echo("Adding: -I {}".format(word))
     env.Append(BUILD_FLAGS = ["-I {}".format(word)])
