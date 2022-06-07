@@ -97,6 +97,10 @@ void QF::onStartup(void) {
     Timer1.attachInterrupt(TIMER_HANDLER);
     // ...
 }
+
+
+#ifndef Q_UTEST
+
 //............................................................................
 void QV::onIdle(void) { // called with interrupts DISABLED
 #ifdef NDEBUG
@@ -132,7 +136,7 @@ void QV::onIdle(void) { // called with interrupts DISABLED
 #endif
 }
 
-#ifndef Q_UTEST
+
 //............................................................................
 extern "C" Q_NORETURN Q_onAssert(char const * const module, int location) {
     //
