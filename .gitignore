@@ -57,3 +57,6 @@ QSpy/
 lib/
 obj/
 output/
+
+.pio
+.vscode
