@@ -35,6 +35,9 @@ void setup() {
     QF::init(); // initialize the framework
     BSP::init(); // initialize the BSP
 
+    // pause execution of the test and wait for the test script to continue
+    QS_TEST_PAUSE();
+
     // statically allocate event queues for the AOs and start them...
     static QEvt const *blinky_queueSto[10];
     AO_Blinky->start(1U, // priority
@@ -42,11 +45,11 @@ void setup() {
                      (void *)0, 0U); // no stack
     //...
 
-    // QS_OBJ_DICTIONARY(AO_Blinky);
-    // QS_FUN_DICTIONARY(&QHsm::top);
-    // QS_FUN_DICTIONARY(&BSP::ledOn);
-    // QS_FUN_DICTIONARY(&BSP::ledOff);
-    // QS_SIG_DICTIONARY(TIMEOUT_SIG, AO_Blinky);
+    QS_OBJ_DICTIONARY(AO_Blinky);
+    QS_FUN_DICTIONARY(&QHsm::top);
+    QS_FUN_DICTIONARY(&BSP::ledOn);
+    QS_FUN_DICTIONARY(&BSP::ledOff);
+    QS_SIG_DICTIONARY(TIMEOUT_SIG, AO_Blinky);
 
 }
 
