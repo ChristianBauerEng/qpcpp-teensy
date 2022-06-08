@@ -4,7 +4,7 @@ import string
 from subprocess import Popen, PIPE, CREATE_NEW_CONSOLE
 import socket
 import threading
-import time
+from time import sleep
 
 class CustomTestRunner(TestRunnerBase):
 
@@ -19,18 +19,6 @@ class CustomTestRunner(TestRunnerBase):
         self.qspy_socket.connect(('localhost', 6601))
         return super().stage_uploading()
 
-    def qutest_polling_loop(self):
-
-        # Poll qutest output while the process is still alive.
-        while self.qutest_process.poll() is None:
-            outputs = self.qutest_process.stdout.readlines()
-
-            for line in outputs:
-                click.echo(line)
-
-            sleep(1)
-
-        return
 
     def stage_testing(self):
 
@@ -42,7 +30,7 @@ class CustomTestRunner(TestRunnerBase):
         self.qutest_process = Popen('qutest', creationflags=CREATE_NEW_CONSOLE, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 
         # Start polling
-        self.qutest_polling_thread = threading.Thread(group=None, name="qutestPolling", target=qutest_polling_loop, args=(self,), daemon=True)
+        self.qutest_polling_thread = threading.Thread(group=None, name="qutestPolling", target=qutest_polling_loop, args=(self,), daemon=True, universal_newlines=True)
 
         # wait for polling thread to end, which happens when qutest has stopped and all outputs have been processed.
         self.qutest_polling_thread.join()
@@ -50,6 +38,26 @@ class CustomTestRunner(TestRunnerBase):
         # TODO: Kill qspy-process and close console
 
         return super().stage_testing()
+
+
+        # Run this function in a dedicated thread to continously poll output from the qutest-process
+        # Each received line should correspond to a test result.
+    def qutest_polling_loop(self):
+
+        # Poll qutest output while the process is still alive.
+        while self.qutest_process.poll() is None:
+            # Read all lines in STDOUT
+            outputs = self.qutest_process.stdout.readlines()
+
+            # Analyse each line individually.
+            for line in outputs:
+                click.echo(line)
+                # TODO: parse lines and add test-cases to the test-suite.
+
+            # Wait for new data
+            sleep(0.5)
+
+        return
 
     # Processed data received from MCU via debug port.
     # Forwards the received data to the qspy-process.
