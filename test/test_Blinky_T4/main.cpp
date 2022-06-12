@@ -30,19 +30,51 @@ using namespace QP;
 void setup() {
 
     // Wait for USB-port to reconnect.
-    delay(5000);
+    auto startTime = millis();
+    auto lastState = LOW;
+    auto nextState = LOW;
+
+    // Start-up blink
+    while (millis() - startTime < 15000) {
+        delay(200);
+
+        lastState == LOW ? nextState = HIGH : nextState = LOW;
+
+        digitalWrite(LED_BUILTIN, nextState);
+        lastState = nextState;
+    }
+
+
+
+
+    static QF_MPOOL_EL(QEvt) smlPoolSto[10]; // storage for small pool
+    static QEvt const *blinkyQSto[10]; // event queue storage for Blinky
 
     QF::init(); // initialize the framework
+
     BSP::init(); // initialize the BSP
+
+    QS_GLB_FILTER(QS_ALL_RECORDS);
+
+    // dictionaries...
+    QS_SIG_DICTIONARY(TIMEOUT_SIG, nullptr);
+
+    // QS_BEGIN_ID(QS_USER, 0)
+    //     QS_STR("PAUSING TEST");
+    // QS_END();
+
+    // BSP::ledOff();
 
     // pause execution of the test and wait for the test script to continue
     QS_TEST_PAUSE();
 
-    // statically allocate event queues for the AOs and start them...
-    static QEvt const *blinky_queueSto[10];
-    AO_Blinky->start(1U, // priority
-                     blinky_queueSto, Q_DIM(blinky_queueSto),
-                     (void *)0, 0U); // no stack
+     // initialize event pools...
+    QF::poolInit(smlPoolSto, sizeof(smlPoolSto), sizeof(smlPoolSto[0]));
+
+    // start the active objects...
+    AO_Blinky->start(1U,
+                     blinkyQSto, Q_DIM(blinkyQSto),
+                     nullptr, 0U, (QEvt *)0);
     //...
 
     QS_OBJ_DICTIONARY(AO_Blinky);

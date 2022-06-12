@@ -50,6 +50,8 @@ void BSP::init(void) {
 
     // output QS dictionaries...
     QS_OBJ_DICTIONARY(&l_TIMER_ID);
+    QS_FUN_DICTIONARY(&ledOff);
+    QS_FUN_DICTIONARY(&ledOn);   
 
     // setup the QS filters...
     QS_GLB_FILTER(QP::QS_SM_RECORDS); // state machine records

@@ -43,12 +43,14 @@ bool QP::QS::onStartup(void const * arg) {
     initBuf  (qsTxBuf, sizeof(qsTxBuf));
     rxInitBuf(qsRxBuf, sizeof(qsRxBuf));
     Serial.begin(115200); // run serial port at 115200 baud rate
+    // Serial.print("QS buffer initialized\n");
     return true; // return success
 }
 //............................................................................
 void QP::QS::onCommand(uint8_t cmdId, uint32_t param1,
                        uint32_t param2, uint32_t param3)
 {
+    Serial.printf("Command %d received.\n", cmdId);
 }
 
 
@@ -77,6 +79,8 @@ void QP::QS::onFlush(void) {
 }
 //............................................................................
 void QP::QS::onReset(void) {
+    Serial.begin(1);
+    Serial.printf("Reset requested!\n");
     //??? TBD for Teensy
 }
 
