@@ -79,7 +79,6 @@ void QP::QS::onFlush(void) {
 }
 //............................................................................
 void QP::QS::onReset(void) {
-    Serial.begin(1);
     Serial.printf("Reset requested!\n");
     //??? TBD for Teensy
 }
