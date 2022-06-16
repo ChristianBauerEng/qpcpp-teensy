@@ -7,7 +7,9 @@
 
 using namespace QP;
 
-
+#define RESTART_ADDR       0xE000ED0C
+#define READ_RESTART()     (*(volatile uint32_t *)RESTART_ADDR)
+#define WRITE_RESTART(val) ((*(volatile uint32_t *)RESTART_ADDR) = (val))
 
 // //----------------------------------------------------------------------------
 // // QS callbacks...
@@ -18,9 +20,16 @@ void QS::onTestLoop() {
     rxPriv_.inTestLoop = true;
     while (rxPriv_.inTestLoop) {
 
-
-        rxParse();  // parse all the received bytes
-
+        // receive QS incoming data (QS-RX)
+        auto len = Serial.available();
+        if (len > 0) {
+            do {
+                QP::QS::rxPut(Serial.read());
+            } while (--len > 0U);
+            QS::rxParse();
+        }
+        
+        // Transmit outgoing data
         if (Serial.availableForWrite() > 0) { // is TXE empty?
             uint16_t fifo = Serial.availableForWrite(); // max bytes we can write
             uint8_t const * block;     // max bytes we can write non-blocking
@@ -28,6 +37,8 @@ void QS::onTestLoop() {
             Serial.write(block, fifo); // put all bytes into tx buffer
             }
         }
+
+    onFlush();
 
     // set inTestLoop to true in case calls to QS_onTestLoop() nest,
     // which can happen through the calls to QS_TEST_WAIT().
@@ -79,8 +90,10 @@ void QP::QS::onFlush(void) {
 }
 //............................................................................
 void QP::QS::onReset(void) {
+    digitalWrite(LED_BUILTIN, LOW);
     Serial.printf("Reset requested!\n");
-    //??? TBD for Teensy
+    WRITE_RESTART(0x5FA0004);
+    _reboot_Teensyduino_();
 }
 
 #endif // QS_ON
