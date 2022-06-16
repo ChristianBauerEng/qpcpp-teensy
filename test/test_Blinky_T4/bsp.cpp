@@ -101,7 +101,7 @@ void QF::onStartup(void) {
 }
 
 
-#ifndef Q_UTEST
+
 
 //............................................................................
 void QV::onIdle(void) { // called with interrupts DISABLED
@@ -138,6 +138,7 @@ void QV::onIdle(void) { // called with interrupts DISABLED
 #endif
 }
 
+#ifndef Q_UTEST
 
 //............................................................................
 extern "C" Q_NORETURN Q_onAssert(char const * const module, int location) {
