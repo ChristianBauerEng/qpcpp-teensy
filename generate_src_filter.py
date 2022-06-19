@@ -35,9 +35,9 @@ if checkForBuildFlag("Q_UTEST"):
     env.Append(BUILD_FLAGS = ["-I ./ports/arm-cm/qutest/"])
 
     # Config is unit test. Make sure that Q_SPY is also defined.
-    if not checkForBuildFlag("Q_SPY"):
-        click.secho("Config is a unit test, but Q_SPY is not defined. Adding it to build flags.", fg='yellow')
-        env.Append(BUILD_FLAGS = ["-D Q_SPY"])
+    # if not checkForBuildFlag("Q_SPY"):
+    #     click.secho("Config is a unit test, but Q_SPY is not defined. Adding it to build flags.", fg='yellow')
+    #     env.Append(BUILD_FLAGS = ["-D Q_SPY"])
 else:
     click.echo("Config is NOT a unit test.")
     env.Append(SRC_FILTER = "+<ports/arm-cm/qv/gnu/>")
