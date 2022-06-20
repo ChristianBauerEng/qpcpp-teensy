@@ -74,7 +74,7 @@ class QUTest:
     _SKIP = 3
 
     # timeout value [seconds]
-    _TOUT = 20.000
+    _TOUT = 10.000
 
     # options for implemented commands
     _OPT_NORESET = 0x01
