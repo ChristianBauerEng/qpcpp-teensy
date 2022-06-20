@@ -26,7 +26,7 @@ class CustomTestRunner(TestRunnerBase):
         # launch a QSPY process that is opened in a dedicated shell
         click.secho("Opening QSPY session...")
         # self.qspy_process = Popen('qspy', creationflags=CREATE_NEW_CONSOLE)
-        self.qspy_process = Popen('qspy', creationflags=CREATE_NEW_CONSOLE)
+        self.qspy_process = Popen('qspy', creationflags=CREATE_NEW_CONSOLE, stdin=PIPE)
 
         click.echo("TestRunner connecting to qspy on port 6601")
         self.qspy_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -51,11 +51,55 @@ class CustomTestRunner(TestRunnerBase):
         # qutest will write its output to PIPE, that we can read periodically.
         # However, since the reading is blocking, we will delegate that to another thread, from where the output
         # will be processed.
-        self.qutest_process = Popen(['python', '-u', qutest_path, fileListString], stdout=PIPE, stderr=PIPE, creationflags=CREATE_NEW_CONSOLE, shell=True, universal_newlines=True)
+        self.qutest_process = Popen(['python', '-u', qutest_path, fileListString], stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        sleep(0.1)
 
         # # Start polling
         self.qutest_polling_thread = threading.Thread(group=None, name="qutestPolling", target=self.qutest_polling_loop)
         self.qutest_polling_thread.start()
+
+    # Run this function in a dedicated thread to continously poll output from the qutest-process
+    # Each received line should correspond to a test result.
+    def qutest_polling_loop(self):
+        click.secho("Starting polling of qutest...", fg='green')
+        # Poll qutest output while the process is still alive.
+        while self.qutest_process.poll() is None:
+            #click.echo("Polling qutest...")
+
+            try:
+            
+                # Read all lines in STDOUT    
+                #self.qutest_process.stdout.flush()
+                outputs = self.qutest_process.stdout.readline()
+                # errors = self.qutest_process.stderr.read()
+
+
+                if outputs is not None:
+                    if(self.options.verbose):
+                        click.secho("QUTEST: {}".format(outputs), fg='yellow')
+
+                    # if (errors is not None):
+                    #     click.secho("QUTEST.STDERR: ".format(errors), fg='red')
+                #click.secho(errors, fg='red')
+
+                # Analyse each line individually.
+                # for line in outputs:
+                #     click.echo(line)
+                #     # TODO: parse lines and add test-cases to the test-suite.
+
+            except Exception as ex:
+                click.secho("Exception polling qutest: ".format(ex), fg='red')
+
+            # Wait for new data
+            sleep(0.1)
+
+        out, err = self.qutest_process.communicate()
+        click.echo("qutest seems to have stopped. No longer polling")
+        self.isTesting = False
+        click.echo(out)
+        click.secho(err, fg="red")
+        self.test_suite.on_finish()
+        return
 
 
     def send_to_MCU(self, bytes):
@@ -102,6 +146,7 @@ class CustomTestRunner(TestRunnerBase):
             try:
                 while(self.isTesting):
                     self.on_testing_data_output(self.serial.read(self.serial.in_waiting or 1))
+                    sys.stdout.flush()
                     sleep(0.1)
             except Exception as exc:
                 click.secho("Exception during serial monitoring: {}".format(exc))
@@ -119,7 +164,7 @@ class CustomTestRunner(TestRunnerBase):
         sleep(0.1)
 
         self.start_qspy()
-        self.qspy_polling_thread = threading.Thread(group=None, name="qthreadPolling", target=self.qspy_polling_loop)
+        self.qspy_polling_thread = threading.Thread(group=None, name="qspyPollingThread", target=self.qspy_polling_loop)
         self.qspy_polling_thread.start()
 
         sleep(2)
@@ -131,38 +176,6 @@ class CustomTestRunner(TestRunnerBase):
 
 
 
-    # Run this function in a dedicated thread to continously poll output from the qutest-process
-    # Each received line should correspond to a test result.
-    def qutest_polling_loop(self):
-        click.secho("Starting polling of qutest...", fg='green')
-        # Poll qutest output while the process is still alive.
-        while self.qutest_process.poll() is None:
-            click.echo("Polling qutest...")
-            
-            # Read all lines in STDOUT
-            self.qutest_process.stdout.flush()
-            #self.qutest_process.stderr.flush()            
-            outputs = self.qutest_process.stdout.read()
-            #errors = self.qutest_process.stderr.read()
-
-            click.echo(outputs)
-            #click.secho(errors, fg='red')
-
-            # Analyse each line individually.
-            # for line in outputs:
-            #     click.echo(line)
-            #     # TODO: parse lines and add test-cases to the test-suite.
-
-            # Wait for new data
-            sleep(0.05)
-
-        out, err = self.qutest_process.communicate()
-        click.echo("qutest seems to have stopped. No longer polling")
-        self.isTesting = False
-        click.echo(out)
-        click.secho(err, fg="red")
-        self.test_suite.on_finish()
-        return
 
     # This function is executed in a seperate thread and continously forwards commands
     # from QSpy to the MCU via the udp channel.
@@ -172,7 +185,8 @@ class CustomTestRunner(TestRunnerBase):
         while self.qspy_process.poll() is None:
             try:
                 data = self.qspy_socket.recv(1)
-                click.secho("QSPY->MCU: {}".format(data), fg='yellow')
+                if(self.options.verbose):
+                    click.secho("QSPY->MCU: {}".format(data), fg='yellow')
                 self.send_to_MCU(data)
             except Exception as e:
                 click.secho("Exception sending data to MCU: {}".format(e), fg='red')
@@ -185,7 +199,8 @@ class CustomTestRunner(TestRunnerBase):
     # Processed data received from MCU via debug port.
     # Forwards the received data to the qspy-process.
     def on_testing_data_output(self, data):
-        click.secho("D: {}".format(data), fg='yellow')
+        if (self.options.verbose):
+            click.secho("D: {}".format(data), fg='yellow')
         self.qspy_socket.sendall(data)
         return super().on_testing_data_output(data)
 
@@ -198,6 +213,13 @@ class CustomTestRunner(TestRunnerBase):
     
     def teardown(self):
         click.echo("tearing down tests...")
-        # self.qspy_socket.close()
-        # self.qspy_process.terminate()
+        self.isTesting = False
+        # send ESC to qspy to try to stop it.
+        self.qspy_process.stdin.write(b'\x1b')
+        self.qspy_process.kill()
+        self.qspy_polling_thread.join()
+
+        self.qspy_socket.close()
+        self.qspy_process.terminate()
+        
         return super().teardown()
