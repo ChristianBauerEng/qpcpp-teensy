@@ -37,13 +37,14 @@ static QP::QSpyId const l_TIMER_ID = { 0U }; // QSpy source ID
 
 //----------------------------------------------------------------------------
 // BSP functions
+enum {
+   LED = QS_USER
+};
 
 //............................................................................
 void BSP::init(void) {
     // initialize the hardware used in this sketch...
     // NOTE: interrupts are configured and started later in QF::onStartup()
-    pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, HIGH);
 
 #ifdef Q_SPY
     QS_INIT(nullptr);
@@ -58,19 +59,25 @@ void BSP::init(void) {
     QS_GLB_FILTER(QP::QS_AO_RECORDS); // active object records
     QS_GLB_FILTER(QP::QS_UA_RECORDS); // all user records
 #endif
+
+    QS_FUN_DICTIONARY(&QHsm::top);
+    QS_USR_DICTIONARY(LED);
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, HIGH);
+
 }
 //............................................................................
 void BSP::ledOff(void) {
     digitalWrite(LED_BUILTIN, LOW);
-    QS_BEGIN_ID(QS_USER, AO_Blinky->getPrio())
-        QS_STR("OFF");
+    QS_BEGIN_ID(LED, AO_Blinky->m_prio)
+       QS_U8(1, 0);
     QS_END()
 }
 //............................................................................
 void BSP::ledOn(void) {
     digitalWrite(LED_BUILTIN, HIGH);
-    QS_BEGIN_ID(QS_USER, AO_Blinky->getPrio())
-        QS_STR("ON");
+    QS_BEGIN_ID(LED, AO_Blinky->m_prio)
+       QS_U8(1, 1);
     QS_END()
 }
 
