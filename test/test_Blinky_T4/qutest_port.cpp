@@ -18,10 +18,12 @@ using namespace QP;
 #ifdef Q_UTEST
 void QS::onTestLoop() {
     rxPriv_.inTestLoop = true;
+
+
     while (rxPriv_.inTestLoop) {
 
         // receive QS incoming data (QS-RX)
-        auto len = Serial.available();
+        size_t len = Serial.available();
         if (len > 0) {
             do {
                 QP::QS::rxPut(Serial.read());
@@ -35,6 +37,7 @@ void QS::onTestLoop() {
             uint8_t const * block;     // max bytes we can write non-blocking
             block = getBlock(&fifo);
             Serial.write(block, fifo); // put all bytes into tx buffer
+            Serial.flush();
             }
         }
 
