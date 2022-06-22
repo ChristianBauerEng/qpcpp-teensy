@@ -3,7 +3,9 @@ from cmath import e
 from logging import captureWarnings
 from os import popen
 from platformio.public import TestRunnerBase
+from platformio.test.result import TestCase, TestCaseSource, TestStatus
 from platformio.device.finder import find_serial_port
+from platformio.util import strip_ansi_codes
 import serial
 import click
 import string
@@ -15,8 +17,14 @@ import time
 import sys
 import os
 import glob
+import re
 
 class CustomTestRunner(TestRunnerBase):
+
+
+    TESTCASE_PARSE_REGEX = re.compile(
+        r"\s?(?P<name>[\w\->:() ]+): (?P<status>FAIL|PASS) \((?P<duration>[^\)]+(?=s))"
+            )
 
     def stage_uploading(self):
         return super().stage_uploading()
@@ -59,7 +67,7 @@ class CustomTestRunner(TestRunnerBase):
         self.qutest_polling_thread.start()
 
     # Run this function in a dedicated thread to continously poll output from the qutest-process
-    # Each received line should correspond to a test result.
+    # Parse the data and scan for test results.
     def qutest_polling_loop(self):
         click.secho("Starting polling of qutest...", fg='green')
         # Poll qutest output while the process is still alive.
@@ -70,23 +78,53 @@ class CustomTestRunner(TestRunnerBase):
             
                 # Read all lines in STDOUT    
                 #self.qutest_process.stdout.flush()
-                outputs = self.qutest_process.stdout.readline()
+                line = self.qutest_process.stdout.readline()
                 # errors = self.qutest_process.stderr.read()
 
-
-                if outputs is not None:
+                if line is not None:
                     if(self.options.verbose):
-                        click.secho("QUTEST: {}".format(outputs), fg='yellow')
+                        click.echo("QUTEST: {}".format(line), nl=False)
 
-                    # if (errors is not None):
-                    #     click.secho("QUTEST.STDERR: ".format(errors), fg='red')
-                #click.secho(errors, fg='red')
+                    #TODO: Parse lines. Similar to: https://github.com/platformio/platformio-core/blob/develop/platformio/test/runners/unity.py
+                    # Example output:
+                    # QUTEST: Copyright (c) 2005-2022 Quantum Leaps, www.state-machine.com
+                    # QUTEST: Attaching to QSpy (localhost:7701) ... OK
+                    # QUTEST: --------------------------------------------------
+                    # QUTEST: Group:D:\WorkDir\AMDC-Drone\c-uav\Dependencies\qpcpp-teensy\test\test_Blinky_T4\test_blinky.py
+                    # QUTEST: TIMEOUT_SIG->Blinky::inst: FAIL (3.978s):
+                    # QUTEST: exp: "0000000001 Query-SM Obj=Blinky::inst,State=Blinky::off"
+                    # QUTEST: got: "           Trg-ERR  QS_RX_AO_FILTER"
+                    # QUTEST: timeEvt->off (tick): FAIL (4.094s):
+                    # QUTEST:   @D:\WorkDir\AMDC-Drone\c-uav\Dependencies\qpcpp-teensy\test\test_Blinky_T4\test_blinky.py:44
+                    # QUTEST: exp: "0000000001 TE0-Post Obj=Blinky::inst.m_timeEvt,Sig=TIMEOUT_SIG,AO=Blinky::inst"
+                    # QUTEST: got: "0000000001 TE0-Post Obj=Blinky::inst.m_timeEvt,Sig=TIMEOUT_SIG,AO=AO_Blinky"
+                    # QUTEST: timeEvt->on (tick): FAIL (0.000s):
+                    # QUTEST:   @D:\WorkDir\AMDC-Drone\c-uav\Dependencies\qpcpp-teensy\test\test_Blinky_T4\test_blinky.py:53
+                    # QUTEST: NORESET-test follows a failed test
+                    # QUTEST: ============= Target: 220622_070909 ==============
+                    # QUTEST: 1 Groups, 3 Tests, 3 Failures, 0 Skipped (8.156s)
+                    # QUTEST:     FAIL    
 
-                # Analyse each line individually.
-                # for line in outputs:
-                #     click.echo(line)
-                #     # TODO: parse lines and add test-cases to the test-suite.
+                    try:
+                        line = strip_ansi_codes(line or "").strip()
+                        match = self.TESTCASE_PARSE_REGEX.search(line)
+                        #click.echo("match: {}".format(match))
+                        if not match is None:
+                            data = match.groupdict()
+                            #click.echo("data:  {}".format(data))
+                            test_case = TestCase(
+                                name=data.get("name").strip(),
+                                status = TestStatus.from_string(data.get("status"))
+                            )
+                            self.test_suite.add_case(test_case)
+                    except Exception as excpt:
+                        click.secho("Error creating test case: {}".format(excpt))
 
+                    if all(s in line for s in ("Groups", "Tests", "Failures", "Skipped")):
+                        # QUtest is printing the summary. Tests are finished.
+                        click.echo("QUTest has sent the summary.")
+                        #self.test_suite.on_finish()
+                   
             except Exception as ex:
                 click.secho("Exception polling qutest: ".format(ex), fg='red')
 
@@ -185,7 +223,7 @@ class CustomTestRunner(TestRunnerBase):
         while self.qspy_process.poll() is None:
             try:
                 data = self.qspy_socket.recv(1)
-                if(self.options.verbose):
+                if(self.options.verbose > 2):
                     click.secho("QSPY->MCU: {}".format(data), fg='yellow')
                 self.send_to_MCU(data)
             except Exception as e:
@@ -199,8 +237,8 @@ class CustomTestRunner(TestRunnerBase):
     # Processed data received from MCU via debug port.
     # Forwards the received data to the qspy-process.
     def on_testing_data_output(self, data):
-        if (self.options.verbose):
-            click.secho("D: {}".format(data), fg='yellow')
+        # if (self.options.verbose):
+        #     click.secho("D: {}".format(data), fg='yellow')
         self.qspy_socket.sendall(data)
         return super().on_testing_data_output(data)
 
@@ -208,7 +246,7 @@ class CustomTestRunner(TestRunnerBase):
     # Since qspy-produces binary data we can ignore this.
     def on_testing_line_output(self, line):
         # click.secho("L: {}".format(line), fg='yellow')
-        # self.qspy_socket.send(bytes(line, "utf-8"))
+        # self.qspy_socket.send(bytes(line, "utf-8"))       
         return
     
     def teardown(self):
