@@ -48,7 +48,8 @@ class CustomTestRunner(TestRunnerBase):
 
         # find python files starting with "test_" in the directory of the current test.
         files = glob.glob(os.path.join(test_dir, test_name, "test_*.py"))
-        click.secho("Found the following test files: {}".format(files), fg='green')
+        if(self.options.verbose):
+            click.secho("Found the following test files: {}".format(files), fg='green')
         fileListString = ' '.join(files)
 
         # Find test scripts, run qutest and connect to the qspy process on the default port.  
@@ -82,8 +83,9 @@ class CustomTestRunner(TestRunnerBase):
                 # errors = self.qutest_process.stderr.read()
 
                 if line is not None:
-                    if(self.options.verbose):
-                        click.echo("QUTEST: {}".format(line), nl=False)
+                    # if(self.options.verbose):
+                    #     click.echo("QUTEST: {}".format(line), nl=False)
+                    click.echo(line, nl=False)
 
                     #TODO: Parse lines. Similar to: https://github.com/platformio/platformio-core/blob/develop/platformio/test/runners/unity.py
                     # Example output:
@@ -122,7 +124,9 @@ class CustomTestRunner(TestRunnerBase):
 
                     if all(s in line for s in ("Groups", "Tests", "Failures", "Skipped")):
                         # QUtest is printing the summary. Tests are finished.
-                        click.echo("QUTest has sent the summary.")
+                        if(self.options.verbose):
+                            click.echo("QUTest has sent the summary.")
+                            break
                         #self.test_suite.on_finish()
                    
             except Exception as ex:
@@ -132,7 +136,8 @@ class CustomTestRunner(TestRunnerBase):
             sleep(0.1)
 
         out, err = self.qutest_process.communicate()
-        click.echo("qutest seems to have stopped. No longer polling")
+        if(self.options.verbose):        
+            click.echo("qutest seems to have stopped. No longer polling")
         self.isTesting = False
         click.echo(out)
         click.secho(err, fg="red")
@@ -145,7 +150,8 @@ class CustomTestRunner(TestRunnerBase):
             self.serial.write(bytes)
             self.serial.flush()
         except Exception as exc:
-            click.secho("Error sending data to MCU: {}".format(exc))
+            if(self.options.verbose):
+                click.secho("Error sending data to MCU: {}".format(exc))
 
     def run_Serial(self):
 
@@ -167,17 +173,20 @@ class CustomTestRunner(TestRunnerBase):
             TIMEOUT = 10
             while(time.perf_counter() - startTime <= TIMEOUT):
                 try:
-                    click.secho("Attempting to open serial port: {}".format(port))
+                    if(self.options.verbose):
+                        click.secho("Attempting to open serial port: {}".format(port))
                     self.serial = serial.Serial(port, 9600, parity=serial.PARITY_NONE, timeout = 5)
-                    click.secho("{} opened...".format(port))
+                    if(self.options.verbose):
+                        click.secho("{} opened...".format(port))
                     break
                 except Exception as e:
-                    click.secho("Could not access serial port: {}".format(port), fg='red')
+                    if(self.options.verbose):
+                        click.secho("Could not access serial port: {}".format(port), fg='red')
                     sleep(1)
 
             # if serial could not be opened withit timeout, give up.
             if(self.serial is None):
-                click.secho("Giving up.", fg='red')
+                click.secho("Giving up trying to connect to serial port. Device connected?", fg='red')
                 return False
 
             # Continously read serial output and send it to ourself.
@@ -187,7 +196,8 @@ class CustomTestRunner(TestRunnerBase):
                     sys.stdout.flush()
                     sleep(0.1)
             except Exception as exc:
-                click.secho("Exception during serial monitoring: {}".format(exc))
+                if(self.options.verbose):
+                    click.secho("Exception during serial monitoring: {}".format(exc))
                 self.serial = None
 
 
@@ -227,9 +237,11 @@ class CustomTestRunner(TestRunnerBase):
                     click.secho("QSPY->MCU: {}".format(data), fg='yellow')
                 self.send_to_MCU(data)
             except Exception as e:
-                click.secho("Exception sending data to MCU: {}".format(e), fg='red')
+                if(self.options.verbose):
+                    click.secho("Exception sending data to MCU: {}".format(e), fg='red')
         
-        click.secho("Stopped polling QSpy. Return code: {}".format(self.qspy_process.returncode))
+        if (self.options.verbose):
+            click.secho("Stopped polling QSpy. Return code: {}".format(self.qspy_process.returncode))
         outs, errs = self.qspy_process.communicate(timeout=15)
         click.secho(outs, fg='yellow')
         click.secho(errs, fg='red')
@@ -250,7 +262,8 @@ class CustomTestRunner(TestRunnerBase):
         return
     
     def teardown(self):
-        click.echo("tearing down tests...")
+        if(self.options.verbose):
+            click.echo("tearing down tests...")
         self.isTesting = False
         # send ESC to qspy to try to stop it.
         self.qspy_process.stdin.write(b'\x1b')
