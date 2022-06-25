@@ -2,16 +2,21 @@ Import("env")
 import click
 import glob
 from pathlib import Path
+import os.path
+import os,  sys
 
-#print(env.Dump())
 
 click.secho("Building source filter...", fg='yellow')
 
 # Find <qpcpp.hpp> file and determine the root path of qp.
-for f in glob.iglob('./**/qpcpp.hpp', recursive=True):
-    qpPath = Path(f).parent.parent
+searchPath= '../**/qpcpp.hpp'
+click.echo("Looking for qpcpp.hpp in: {}".format(searchPath))
+
+for f in glob.iglob(searchPath, recursive=True):
+    qpPath = Path(f).parent.parent.as_posix()
     click.echo("qp path found: {}".format(qpPath))
 
+click.echo("Current WorkDir: {}".format(os.getcwd()))
 
 def checkForBuildFlag(flag):
     flags = env.get('BUILD_FLAGS', None)
@@ -46,6 +51,7 @@ if checkForBuildFlag("Q_UTEST"):
     # if not checkForBuildFlag("Q_SPY"):
     #     click.secho("Config is a unit test, but Q_SPY is not defined. Adding it to build flags.", fg='yellow')
     #     env.Append(BUILD_FLAGS = ["-D Q_SPY"])
+
 else:
     click.echo("Config is NOT a unit test.")
     env.Append(SRC_FILTER = "+<{}/ports/arm-cm/qv/gnu/>".format(qpPath))
@@ -74,3 +80,4 @@ click.secho("Includes are now: {}".format(env["BUILD_FLAGS"]), fg='green')
 
 # SRC_FILTER
 
+#print(env.Dump())
