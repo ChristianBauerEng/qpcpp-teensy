@@ -16,7 +16,16 @@ for f in glob.iglob(searchPath, recursive=True):
     qpPath = Path(f).parent.parent.as_posix()
     click.echo("qp path found: {}".format(qpPath))
 
+
+src_path = env.get('PROJECT_SRC_DIR')
 click.echo("Current WorkDir: {}".format(os.getcwd()))
+click.echo("src_dir: {}".format(src_path))
+qpRelPath = os.path.relpath(qpPath, src_path)
+click.echo("qp-path relative to src_dir: {}".format(qpRelPath))
+qpPath = qpRelPath
+
+# Attention: source filter has to be specified relative to src_dir, not to the path of this file.
+
 
 def checkForBuildFlag(flag):
     flags = env.get('BUILD_FLAGS', None)
