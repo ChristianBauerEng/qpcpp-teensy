@@ -1,0 +1,22 @@
+{
+    "name": "qpcpp",
+    "version": "0.0",
+    "authors": [
+        {
+            "maintainer": true,
+            "name": "Christian Bauer"
+        }
+    ],
+    "frameworks": [
+        "arduino"
+    ],
+    "platforms": [
+        "teensy"
+    ],
+    "build": {
+        "extraScript": "generate_src_filter.py",
+        "libArchive": false
+    }   
+}
+
+;https://community.platformio.org/t/library-extrascript-cant-add-include-paths-to-build-flags/14247
