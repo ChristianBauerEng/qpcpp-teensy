@@ -20,9 +20,9 @@ for f in glob.iglob(searchPath, recursive=True):
 src_path = env.get('PROJECT_SRC_DIR')
 click.echo("Current WorkDir: {}".format(os.getcwd()))
 click.echo("src_dir: {}".format(src_path))
-qpRelPath = os.path.relpath(qpPath, src_path)
+qpRelPath = Path(os.path.relpath(qpPath, src_path)).as_posix()
 click.echo("qp-path relative to src_dir: {}".format(qpRelPath))
-qpPath = qpRelPath
+
 
 # Attention: source filter has to be specified relative to src_dir, not to the path of this file.
 
@@ -38,19 +38,19 @@ def checkForBuildFlag(flag):
 
 
 # Make sure that we override the default source file list...
-env.Replace(SRC_FILTER = ["-<{}/*>".format(qpPath)])
+env.Replace(SRC_FILTER = ["-<{}/*>".format(qpRelPath)])
 # env.Append(SRC_FILTER = ["+<src/>"])
 # Add event system
-env.Append(SRC_FILTER = ["+<{}/src/qf/>".format(qpPath)])
+env.Append(SRC_FILTER = ["+<{}/src/qf/>".format(qpRelPath)])
 # Add includes (qstamp.cpp)
-env.Append(SRC_FILTER = ["+<{}/include/>".format(qpPath)])
+env.Append(SRC_FILTER = ["+<{}/include/>".format(qpRelPath)])
 
 # Check, whether the configuration to build needs unit-test support.
 if checkForBuildFlag("Q_UTEST"):
     click.echo("Config is a unit test.")
 
     # Add QUTEST port to source-list
-    env.Append(SRC_FILTER = ["+<{}/ports/arm-cm/qutest/>".format(qpPath)])
+    env.Append(SRC_FILTER = ["+<{}/ports/arm-cm/qutest/>".format(qpRelPath)])
     click.secho("Added qutest-port to source filter", fg='green')
 
     # Add Q_UTEST port to includes.
@@ -63,17 +63,17 @@ if checkForBuildFlag("Q_UTEST"):
 
 else:
     click.echo("Config is NOT a unit test.")
-    env.Append(SRC_FILTER = "+<{}/ports/arm-cm/qv/gnu/>".format(qpPath))
+    env.Append(SRC_FILTER = "+<{}/ports/arm-cm/qv/gnu/>".format(qpRelPath))
     env.Append(BUILD_FLAGS = ["-I {}/ports/arm-cm/qv/gnu/".format(qpPath)])
     click.secho("Added qv-kernel to source filter", fg='green')
     # Add qv kernel
-    env.Append(SRC_FILTER = "+<{}/src/qv/>".format(qpPath)) 
+    env.Append(SRC_FILTER = "+<{}/src/qv/>".format(qpRelPath)) 
 
 
 
 if checkForBuildFlag("Q_SPY"):
     click.secho("Adding Q-SPY support by including qs-directory in source filter...")
-    env.Append(SRC_FILTER = "+<{}/src/qs/>".format(qpPath))
+    env.Append(SRC_FILTER = "+<{}/src/qs/>".format(qpRelPath))
 
 click.secho("source-filter is now: {}".format(env["SRC_FILTER"]), fg='green')
 click.secho("Done building source filter", fg='yellow')
@@ -87,6 +87,7 @@ for word in includes:
 
 click.secho("Includes are now: {}".format(env["BUILD_FLAGS"]), fg='green')
 
+env.ProcessFlags(env.get("BUILD_FLAGS"))
 # SRC_FILTER
 
 #print(env.Dump())

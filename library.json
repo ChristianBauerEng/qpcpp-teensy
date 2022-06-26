@@ -1,12 +1,6 @@
 {
     "name": "qpcpp",
     "version": "0.0",
-    "authors": [
-        {
-            "maintainer": true,
-            "name": "Christian Bauer"
-        }
-    ],
     "frameworks": [
         "arduino"
     ],
@@ -18,5 +12,3 @@
         "libArchive": false
     }   
 }
-
-;https://community.platformio.org/t/library-extrascript-cant-add-include-paths-to-build-flags/14247
