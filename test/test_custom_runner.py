@@ -265,12 +265,18 @@ class CustomTestRunner(TestRunnerBase):
         if(self.options.verbose):
             click.echo("tearing down tests...")
         self.isTesting = False
-        # send ESC to qspy to try to stop it.
-        self.qspy_process.stdin.write(b'\x1b')
-        self.qspy_process.kill()
-        self.qspy_polling_thread.join()
+        sleep(2)
 
-        self.qspy_socket.close()
-        self.qspy_process.terminate()
+        click.echo("Status of test suite: {}".format(self.test_suite.status))
+        # for test in self.test_suite.cases:
+        #     test.
+
+        if self.test_suite.status is TestStatus.PASSED:
+            # send ESC to qspy to try to stop it.
+            self.qspy_process.stdin.write(b'\x1b')
+            self.qspy_process.kill()
+            self.qspy_polling_thread.join()
+            self.qspy_socket.close()
+            self.qspy_process.terminate()
         
         return super().teardown()
